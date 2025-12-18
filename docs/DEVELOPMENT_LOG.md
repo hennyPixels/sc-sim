@@ -1054,5 +1054,289 @@ Remember:
 
 ---
 
-*Document last updated: Session 6*
-*Total lines of educational comments added: ~2,900*
+### Session 7: gperftools Integration & Memory Profiling
+
+**Date:** December 18, 2024
+**Focus:** Binary Analysis, Memory Optimization, Native Profiling Tools
+
+#### The Challenge
+
+The user requested integration of Google Performance Tools (gperftools) with the PartsDB C example. The specific requirements were:
+1. Use gperftools instead of Valgrind (which requires Linux/WSL)
+2. Build natively on Windows (avoid WSL)
+3. Create comprehensive debugging and profiling documentation
+
+#### The Journey: A Story of Troubleshooting
+
+**Act I: The Missing Compiler**
+
+We began with a Windows system that had no C compiler in PATH:
+
+```
+$ where gcc.exe → Not found
+$ where cl.exe → Not found
+$ where cmake.exe → Not found
+```
+
+Visual Studio 2025 Community was installed, but only included LLVM formatting tools (clang-format, clang-tidy) - not a full compiler toolchain.
+
+**Resolution:** Found winget package manager and installed MSYS2:
+```bash
+$ winget install MSYS2.MSYS2
+Successfully installed
+```
+
+**Act II: Path Format Confusion**
+
+In Git Bash, Windows paths don't work:
+```bash
+$ C:\msys64\usr\bin\pacman.exe --version
+bash: C:msys64usrbinpacman.exe: command not found
+```
+
+**Resolution:** Use Unix-style paths:
+```bash
+$ /c/msys64/usr/bin/pacman.exe --version
+Pacman v6.1.0 - libalpm v14.0.0  ✓
+```
+
+**Act III: The gperftools Build Battle**
+
+gperftools wasn't available as a pre-built MSYS2 package. Building from source failed:
+
+```
+FAILED: libtcmalloc_minimal.dll
+undefined reference to `WaitOnAddress'
+undefined reference to `WakeByAddressAll'
+```
+
+**Root Cause Analysis:**
+- `WaitOnAddress` is a Windows 8+ synchronization API
+- Located in `libsynchronization.a`
+- The library existed but was linked in wrong order (before `libcommon.a` instead of after)
+
+**Resolution:** Added to CMakeLists.txt line 434:
+```cmake
+target_link_libraries(common INTERFACE synchronization)
+```
+
+Using `INTERFACE` ensures any target linking against `common` automatically gets `synchronization` in the correct order.
+
+**Act IV: The Missing Header**
+
+Building PartsDB with TCMalloc failed:
+```
+error: implicit declaration of function 'va_start'
+```
+
+**Resolution:** Added `#include <stdarg.h>` to main.c
+
+#### What We Built
+
+| Component | Description | Size |
+|-----------|-------------|------|
+| libtcmalloc_minimal.dll | TCMalloc library | 3.1 MB |
+| partsdb_debug.exe | PartsDB with TCMalloc | 489 KB |
+| tcmalloc_demo.exe | Benchmark program | ~300 KB |
+
+#### Performance Metrics Achieved
+
+```
+ALLOCATION BENCHMARK (100,000 random-sized allocations):
+┌────────────────────────────────────────────────────────────┐
+│ Operation          │ Time      │ Rate                      │
+├────────────────────┼───────────┼───────────────────────────┤
+│ Allocation         │ 54 ms     │ 1,852 allocs/ms           │
+│ Deallocation       │ 2 ms      │ 50,000 frees/ms           │
+│ Memory Efficiency  │ -         │ 96.6%                     │
+└────────────────────┴───────────┴───────────────────────────┘
+
+SIZE CLASS ANALYSIS:
+┌────────────────────────────────────────────────────────────┐
+│ Requested │ Actual    │ Overhead │ Note                    │
+├───────────┼───────────┼──────────┼─────────────────────────┤
+│ 1 byte    │ 8 bytes   │ 700%     │ Minimum allocation unit │
+│ 17 bytes  │ 32 bytes  │ 88%      │ Rounds to power of 2    │
+│ 4096      │ 4096      │ 0%       │ Page-aligned, optimal   │
+└───────────┴───────────┴──────────┴─────────────────────────┘
+```
+
+#### Documentation Created
+
+| File | Purpose | Lines |
+|------|---------|-------|
+| `c23-tutorial/partsdb-example/SESSION_LOG.md` | Narrative build story | 600+ |
+| `c23-tutorial/partsdb-example/GPERFTOOLS_GUIDE.md` | Usage reference | 450+ |
+| `c23-tutorial/partsdb-example/PROFILING_LOG.md` | Performance results | 200+ |
+| `c23-tutorial/partsdb-example/tcmalloc_demo.c` | Benchmark program | 250 |
+
+#### Lessons for Binary Analysis
+
+**1. Link Order Matters for Static Libraries**
+
+When linking static libraries, symbols must be resolved in order:
+```
+WRONG: -lsynchronization libcommon.a  (sync before common)
+RIGHT: libcommon.a -lsynchronization  (sync after common)
+```
+
+The library providing symbols must come AFTER the object that needs them.
+
+**2. Memory Allocator Internals**
+
+TCMalloc uses a three-tier architecture:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    APPLICATION                               │
+│                         ↓                                    │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  THREAD CACHE (fast path, no locks)                  │   │
+│  │  - Per-thread free lists for small objects           │   │
+│  │  - Allocation: O(1) with thread-local access         │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         ↓ (when thread cache exhausted)     │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  CENTRAL CACHE (transfer cache + central free list)  │   │
+│  │  - Shared between threads                            │   │
+│  │  - Locked access, but batched transfers              │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         ↓ (when central cache exhausted)    │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  PAGE HEAP                                           │   │
+│  │  - Manages spans of pages                            │   │
+│  │  - Interfaces with OS (VirtualAlloc/mmap)            │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**3. Memory Release Behavior**
+
+TCMalloc retains freed memory for fast reuse:
+```c
+// Memory is freed but not returned to OS
+free(large_buffer);
+
+// Statistics show memory in "page heap freelist"
+// To force return to OS:
+MallocExtension_ReleaseFreeMemory();
+```
+
+#### Platform Comparison: Profiling Tools
+
+| Tool | Linux | macOS | Windows | Best For |
+|------|-------|-------|---------|----------|
+| TCMalloc | ✅ Full | ✅ Full | ✅ Minimal | Fast allocation |
+| CPU Profiler | ✅ Full | ✅ Full | ❌ No | Hot path analysis |
+| Heap Profiler | ✅ Full | ⚠ Limited | ⚠ Limited | Memory patterns |
+| Valgrind | ✅ Full | ✅ Full | ❌ No | Memory errors |
+| AddressSanitizer | ✅ Full | ✅ Full | ✅ Full | Memory bugs |
+
+#### Code Patterns for Memory Optimization
+
+**Pattern 1: Size Class Awareness**
+```c
+// Suboptimal: 100 bytes → allocated as 112 bytes (12 byte overhead)
+struct SmallThing {
+    char data[100];
+};
+
+// Optimal: 128 bytes → allocated as 128 bytes (0 overhead)
+struct SmallThing {
+    char data[100];
+    char _padding[28];  // Pad to power of 2
+};
+```
+
+**Pattern 2: Periodic Memory Release**
+```c
+void maintenance_thread(void) {
+    while (running) {
+        sleep(60);  // Every minute
+
+        size_t allocated, heap_size;
+        MallocExtension_GetNumericProperty(
+            "generic.current_allocated_bytes", &allocated);
+        MallocExtension_GetNumericProperty(
+            "generic.heap_size", &heap_size);
+
+        // Release if efficiency drops below 50%
+        if ((double)allocated / heap_size < 0.5) {
+            MallocExtension_ReleaseFreeMemory();
+        }
+    }
+}
+```
+
+#### Future Work
+
+1. **Linux Profiling Session**: Full gperftools (CPU profiler + heap profiler)
+2. **AddressSanitizer Integration**: Already available via `make sanitize`
+3. **Continuous Memory Monitoring**: Export TCMalloc stats to metrics system
+4. **Cross-Platform Build Matrix**: CI/CD for Windows, Linux, macOS
+
+---
+
+## Binary Analysis & Memory Optimization Reference
+
+### Tools Quick Reference
+
+```
+MEMORY PROFILING:
+├─ gperftools/TCMalloc  - High-performance allocator + stats
+├─ Valgrind memcheck    - Memory error detection (Linux)
+├─ AddressSanitizer     - Compile-time memory checking
+├─ Dr. Memory           - Windows memory debugging
+└─ Visual Studio        - Integrated profiler (Windows)
+
+BINARY ANALYSIS:
+├─ nm                   - Symbol listing
+├─ objdump              - Disassembly, headers
+├─ readelf              - ELF analysis (Linux)
+├─ dumpbin              - PE analysis (Windows)
+├─ Ghidra               - Reverse engineering (free)
+└─ IDA Pro              - Reverse engineering (commercial)
+
+PERFORMANCE PROFILING:
+├─ perf                 - Linux performance counters
+├─ VTune                - Intel CPU profiling
+├─ Instruments          - macOS profiling
+└─ Windows Performance Analyzer
+```
+
+### Common nm/objdump Commands
+
+```bash
+# List all symbols
+nm -C ./program | less
+
+# List undefined (external) symbols
+nm -u ./program
+
+# List dynamic symbols
+nm -D ./program
+
+# Disassemble specific function
+objdump -d -M intel --disassemble=function_name ./program
+
+# Show section headers
+objdump -h ./program
+
+# Show dynamic dependencies
+objdump -p ./program | grep NEEDED
+```
+
+### Memory Error Patterns
+
+| Error Type | Symptom | Tool to Detect | Example |
+|------------|---------|----------------|---------|
+| Buffer overflow | Corruption, crash | ASan, Valgrind | `strcpy(small_buf, large_string)` |
+| Use after free | Corruption, crash | ASan, Valgrind | `free(p); *p = 1;` |
+| Double free | Crash | ASan, Valgrind | `free(p); free(p);` |
+| Memory leak | Growing memory | Valgrind, Heap Prof | Missing `free()` |
+| Stack overflow | SIGSEGV | ulimit, ASan | Deep recursion |
+
+---
+
+*Document last updated: Session 7 - gperftools Integration*
+*Total lines of educational comments added: ~3,500*
+*New profiling documentation: ~1,500 lines*

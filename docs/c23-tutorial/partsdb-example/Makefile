@@ -85,7 +85,7 @@ endif
 # Build Targets
 #============================================================================
 
-.PHONY: all clean debug release sanitize tsan help test
+.PHONY: all clean debug release sanitize tsan help test tcmalloc tcmalloc-demo
 
 all: $(TARGET)
 
@@ -120,6 +120,29 @@ tsan: LDFLAGS := $(TSAN_FLAGS) -lm
 tsan: clean all
 	@echo "ThreadSanitizer build complete"
 
+#============================================================================
+# TCMalloc/gperftools Targets
+#============================================================================
+
+# TCMalloc library location
+TCMALLOC_INC := ./lib
+TCMALLOC_LIB := ./lib
+
+# Build with TCMalloc for memory profiling
+tcmalloc: CFLAGS := -std=$(CSTD) $(WARNINGS) $(DEBUG_FLAGS) -I$(TCMALLOC_INC)
+tcmalloc: LDFLAGS := -L$(TCMALLOC_LIB) -ltcmalloc_minimal -lm
+tcmalloc: TARGET := partsdb_tcmalloc$(if $(filter Windows,$(UNAME_S)),.exe)
+tcmalloc: clean all
+	@echo "TCMalloc build complete"
+	@echo "Run with: PATH=$(TCMALLOC_LIB):$$PATH ./partsdb_tcmalloc$(if $(filter Windows,$(UNAME_S)),.exe)"
+
+# Build TCMalloc demo
+tcmalloc-demo: CFLAGS := -std=$(CSTD) -O2 -I$(TCMALLOC_INC)
+tcmalloc-demo:
+	$(CC) $(CFLAGS) -o tcmalloc_demo$(if $(filter Windows,$(UNAME_S)),.exe) tcmalloc_demo.c -L$(TCMALLOC_LIB) -ltcmalloc_minimal
+	@echo "TCMalloc demo built"
+	@echo "Run with: PATH=$(TCMALLOC_LIB):$$PATH ./tcmalloc_demo$(if $(filter Windows,$(UNAME_S)),.exe)"
+
 # Static analysis (requires clang)
 analyze:
 	@echo "Running static analysis..."
@@ -128,7 +151,7 @@ analyze:
 
 # Clean
 clean:
-	rm -f $(OBJS) $(TARGET) *.plist
+	rm -f $(OBJS) $(TARGET) partsdb_tcmalloc partsdb_tcmalloc.exe partsdb_debug.exe tcmalloc_demo tcmalloc_demo.exe *.plist
 	@echo "Cleaned"
 
 #============================================================================
@@ -182,19 +205,23 @@ help:
 	@echo "PartsDB Example Build System"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all       Build with debug settings (default)"
-	@echo "  debug     Build with debug settings"
-	@echo "  release   Build optimized release"
-	@echo "  sanitize  Build with AddressSanitizer"
-	@echo "  tsan      Build with ThreadSanitizer"
-	@echo "  analyze   Run static analysis (requires clang)"
-	@echo "  test      Run basic functionality tests"
-	@echo "  clean     Remove build artifacts"
-	@echo "  help      Show this help"
+	@echo "  all          Build with debug settings (default)"
+	@echo "  debug        Build with debug settings"
+	@echo "  release      Build optimized release"
+	@echo "  sanitize     Build with AddressSanitizer"
+	@echo "  tsan         Build with ThreadSanitizer"
+	@echo "  tcmalloc     Build with TCMalloc (gperftools)"
+	@echo "  tcmalloc-demo Build TCMalloc demo program"
+	@echo "  analyze      Run static analysis (requires clang)"
+	@echo "  test         Run basic functionality tests"
+	@echo "  clean        Remove build artifacts"
+	@echo "  help         Show this help"
 	@echo ""
 	@echo "Variables:"
 	@echo "  CC=$(CC)"
 	@echo "  CSTD=$(CSTD)"
 	@echo ""
-	@echo "Example:"
+	@echo "Examples:"
 	@echo "  make release CC=clang"
+	@echo "  make tcmalloc             # Build with TCMalloc"
+	@echo "  make tcmalloc-demo        # Build memory profiling demo"
