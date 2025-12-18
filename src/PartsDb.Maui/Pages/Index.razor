@@ -1,0 +1,267 @@
+@page "/"
+@inject IPartsService PartsService
+
+<div class="search-container">
+    <input type="text"
+           class="search-input"
+           placeholder="Search parts by name, number, or manufacturer..."
+           @bind="searchQuery"
+           @bind:event="oninput"
+           @onkeyup="OnSearchKeyUp" />
+</div>
+
+<div class="card-header mb-md">
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span class="text-muted">@(parts?.Count() ?? 0) parts found</span>
+        <button class="btn btn-primary" @onclick="ShowAddPartModal">+ Add Part</button>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading parts...</p>
+    </div>
+}
+else if (parts != null && parts.Any())
+{
+    <div class="parts-grid">
+        @foreach (var part in parts)
+        {
+            <div class="part-card" @onclick="() => SelectPart(part)">
+                <div class="part-image-placeholder">No Image</div>
+                <div class="part-info">
+                    <div class="part-number">@part.PartNumber</div>
+                    <div class="part-name">@part.Name</div>
+                    <div class="part-meta">
+                        <span class="text-muted">@(part.Category?.Name ?? "Uncategorized")</span>
+                        <span class="part-quantity @GetQuantityClass(part)">
+                            @part.Quantity in stock
+                        </span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="card">
+        <p class="text-muted" style="text-align: center;">
+            No parts found. Add your first part to get started!
+        </p>
+    </div>
+}
+
+@if (showAddModal)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Add New Part</h3>
+                <button class="btn-icon" @onclick="CloseModals">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="newPart" OnValidSubmit="SaveNewPart">
+                    <div class="form-group">
+                        <label class="form-label">Part Number *</label>
+                        <InputText class="form-input" @bind-Value="newPart.PartNumber" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Name *</label>
+                        <InputText class="form-input" @bind-Value="newPart.Name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <InputTextArea class="form-input" @bind-Value="newPart.Description" rows="3" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <InputSelect class="form-select" @bind-Value="newPart.CategoryId">
+                            <option value="">Select category...</option>
+                            @foreach (var cat in categories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Manufacturer</label>
+                        <InputText class="form-input" @bind-Value="newPart.Manufacturer" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Quantity</label>
+                        <InputNumber class="form-input" @bind-Value="newPart.Quantity" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location</label>
+                        <InputText class="form-input" @bind-Value="newPart.Location" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Part</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (selectedPart != null)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@selectedPart.Name</h3>
+                <button class="btn-icon" @onclick="CloseModals">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="table">
+                    <tr>
+                        <th>Part Number</th>
+                        <td>@selectedPart.PartNumber</td>
+                    </tr>
+                    <tr>
+                        <th>Category</th>
+                        <td>@(selectedPart.Category?.Name ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <th>Manufacturer</th>
+                        <td>@(selectedPart.Manufacturer ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <th>Quantity</th>
+                        <td>
+                            <span class="part-quantity @GetQuantityClass(selectedPart)">
+                                @selectedPart.Quantity
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Location</th>
+                        <td>@(selectedPart.Location ?? "N/A")</td>
+                    </tr>
+                    @if (!string.IsNullOrEmpty(selectedPart.Description))
+                    {
+                        <tr>
+                            <th>Description</th>
+                            <td>@selectedPart.Description</td>
+                        </tr>
+                    }
+                </table>
+
+                <div class="mt-md">
+                    <h4>Adjust Quantity</h4>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" class="form-input" style="width: 100px;" @bind="quantityChange" />
+                        <button class="btn btn-primary" @onclick="() => AdjustQuantity(1)">Add</button>
+                        <button class="btn btn-secondary" @onclick="() => AdjustQuantity(-1)">Remove</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" @onclick="DeleteSelectedPart">Delete</button>
+                <button class="btn btn-secondary" @onclick="CloseModals">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<Part>? parts;
+    private IEnumerable<Category> categories = Array.Empty<Category>();
+    private string searchQuery = "";
+    private bool isLoading = true;
+    private bool showAddModal = false;
+    private Part? selectedPart;
+    private Part newPart = new();
+    private int quantityChange = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            parts = await PartsService.GetPartsAsync();
+            categories = await PartsService.GetCategoriesAsync();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            parts = await PartsService.GetPartsAsync();
+        }
+        else
+        {
+            parts = await PartsService.SearchPartsAsync(searchQuery);
+        }
+    }
+
+    private void ShowAddPartModal()
+    {
+        newPart = new Part();
+        showAddModal = true;
+    }
+
+    private void SelectPart(Part part)
+    {
+        selectedPart = part;
+        quantityChange = 1;
+    }
+
+    private void CloseModals()
+    {
+        showAddModal = false;
+        selectedPart = null;
+    }
+
+    private async Task SaveNewPart()
+    {
+        if (string.IsNullOrWhiteSpace(newPart.PartNumber) || string.IsNullOrWhiteSpace(newPart.Name))
+            return;
+
+        await PartsService.CreatePartAsync(newPart);
+        await LoadData();
+        CloseModals();
+    }
+
+    private async Task AdjustQuantity(int direction)
+    {
+        if (selectedPart == null) return;
+
+        var change = quantityChange * direction;
+        var type = direction > 0 ? TransactionType.In : TransactionType.Out;
+
+        await PartsService.UpdateQuantityAsync(selectedPart.Id, change, type);
+        selectedPart = await PartsService.GetPartByIdAsync(selectedPart.Id);
+        await LoadData();
+    }
+
+    private async Task DeleteSelectedPart()
+    {
+        if (selectedPart == null) return;
+
+        await PartsService.DeletePartAsync(selectedPart.Id);
+        await LoadData();
+        CloseModals();
+    }
+
+    private string GetQuantityClass(Part part)
+    {
+        if (part.Quantity <= 0) return "quantity-out";
+        if (part.Quantity <= part.MinQuantity) return "quantity-low";
+        return "quantity-ok";
+    }
+}

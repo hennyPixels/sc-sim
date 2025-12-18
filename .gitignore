@@ -1,0 +1,52 @@
+# Build outputs
+bin/
+obj/
+build/
+out/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+.idea/
+
+# .NET
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# MAUI
+*.apk
+*.ipa
+*.appx
+*.msix
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test results
+TestResults/
+coverage/
