@@ -51,17 +51,16 @@ This comprehensive tutorial explores C23 through the PartsDB CLI codebase, synth
 ### Professional Practice
 - [Part 9: Style, Debugging & Portability](part-09-style-debugging.md) *(Practice of Programming)*
 - [Part 10: Defensive Programming & Assertions](part-10-defensive-programming.md) *(Writing Solid Code)*
-- [Part 11: Pointer Mechanics & Dynamic Allocation](part-11-pointers.md) *(Pointers on C, C Puzzle Book)*
+- [Part 11: Pointer Mechanics & Dynamic Allocation](part-11-pointer-mechanics.md) *(Pointers on C, C Puzzle Book)*
 
 ### Standards & Philosophy
-- [Part 12: SEI CERT C Coding Standard](part-12-cert-standard.md) *(SEI CERT)*
+- [Part 12: SEI CERT C Coding Standard](part-12-cert-c-standard.md) *(SEI CERT)*
 - [Part 13: K&R Design Philosophy](part-13-kr-philosophy.md) *(K&R)*
 
 ### Appendices
-- [Appendix A: Professional Security Requirements](appendix-a-security-requirements.md)
-- [Appendix B: Review Questions](appendix-b-review-questions.md)
-- [Appendix C: PartsDB Security Hardening Checklist](appendix-c-hardening-checklist.md)
-- [Appendix D: Quick Reference](appendix-d-quick-reference.md)
+- [Appendix A: Security Hardening Checklist](appendix-a-security-checklist.md)
+- [Appendix B: Comprehensive Review Questions](appendix-b-review-questions.md)
+- [Appendix C: Quick Reference](appendix-c-quick-reference.md)
 
 ---
 
