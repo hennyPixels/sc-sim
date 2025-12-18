@@ -50,3 +50,19 @@ Thumbs.db
 # Test results
 TestResults/
 coverage/
+coverage-report/
+
+# Build outputs
+dist/
+publish/
+
+# ML models and data
+*.pkl
+*.onnx
+*.tflite
+*.keras
+*.h5
+*.index
+*.index.meta
+data/images/
+exports/
