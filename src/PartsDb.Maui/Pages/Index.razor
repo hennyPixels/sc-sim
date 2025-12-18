@@ -1,6 +1,79 @@
+@*
+=============================================================================
+BLAZOR COMPONENT - Index.razor (Main Parts List Page)
+=============================================================================
+This is a Blazor component - a reusable piece of UI that combines HTML markup
+with C# code. Blazor uses a component-based architecture similar to React or Vue.
+
+📖 BLAZOR FILE STRUCTURE:
+- .razor files contain both markup (HTML) and code (C#)
+- Top section: Directives (@page, @inject, @using)
+- Middle section: HTML markup with Razor syntax
+- Bottom section: @code block with C# logic
+
+📖 RAZOR SYNTAX:
+- @ prefix: Switch from HTML to C# expression
+- @{ }: C# code block
+- @if, @foreach: C# control flow
+- @bind: Two-way data binding
+- @@: Escape @ symbol in output
+
+📚 Learn more:
+- Blazor docs: https://learn.microsoft.com/en-us/aspnet/core/blazor/
+- Component lifecycle: https://learn.microsoft.com/en-us/aspnet/core/blazor/components/lifecycle
+=============================================================================
+*@
+
+@*
+📖 PAGE DIRECTIVE:
+- Defines the URL route for this component
+- "/" means this is the home/index page
+- Can have parameters: @page "/parts/{id:int}"
+*@
 @page "/"
+
+@*
+📖 INJECT DIRECTIVE (Dependency Injection):
+- @inject tells Blazor to inject a service
+- IPartsService: The interface we want
+- PartsService: The variable name to use in code
+- DI container provides the implementation
+
+This is the same pattern as constructor injection in classes:
+  public class MyClass
+  {
+      public MyClass(IPartsService partsService) { }
+  }
+
+📚 DI in Blazor: https://learn.microsoft.com/en-us/aspnet/core/blazor/fundamentals/dependency-injection
+*@
 @inject IPartsService PartsService
 
+@*
+=============================================================================
+SEARCH INPUT - Data Binding Example
+=============================================================================
+📖 @bind DIRECTIVE:
+- Creates two-way data binding between HTML element and C# property
+- @bind="searchQuery" means:
+  - Value displays searchQuery
+  - Changes update searchQuery
+
+📖 @bind:event:
+- Default bind event is "onchange" (fires when focus leaves)
+- @bind:event="oninput" fires on every keystroke
+- Better for real-time search
+
+📖 @onkeyup:
+- Event handler for keyup events
+- Calls OnSearchKeyUp method with KeyboardEventArgs
+- "OnSearchKeyUp" is a method in the @code block
+
+Alternative event syntax:
+  @onkeyup="HandleKeyUp"           // Method reference
+  @onkeyup="() => DoSomething()"   // Lambda expression
+  @onkeyup="e => HandleKey(e)"     // Lambda with parameter
+*@
 <div class="search-container">
     <input type="text"
            class="search-input"
@@ -10,6 +83,20 @@
            @onkeyup="OnSearchKeyUp" />
 </div>
 
+@*
+=============================================================================
+CARD HEADER - Razor Expressions
+=============================================================================
+📖 RAZOR EXPRESSIONS:
+- @(...) evaluates a C# expression and outputs the result
+- @(parts?.Count() ?? 0) demonstrates:
+  - ?. (null-conditional): Returns null if parts is null
+  - ?? (null-coalescing): Returns 0 if left side is null
+
+📖 @onclick DIRECTIVE:
+- Binds a click event to a method
+- Method can be async: @onclick="async () => await DoAsync()"
+*@
 <div class="card-header mb-md">
     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <span class="text-muted">@(parts?.Count() ?? 0) parts found</span>
@@ -17,6 +104,22 @@
     </div>
 </div>
 
+@*
+=============================================================================
+CONDITIONAL RENDERING - @if / else if / else
+=============================================================================
+📖 @if DIRECTIVE:
+- Conditionally includes markup in the render output
+- NOT hidden with CSS - actually not rendered when false
+- Better for performance when elements are complex
+
+📖 LOADING STATE PATTERN:
+- Show spinner while isLoading is true
+- Show content when data is ready
+- Show empty state when no data
+
+Alternative: Use CSS [hidden] for simple show/hide
+*@
 @if (isLoading)
 {
     <div class="loading">
@@ -26,16 +129,66 @@
 }
 else if (parts != null && parts.Any())
 {
+    @*
+    =========================================================================
+    LIST RENDERING - @foreach
+    =========================================================================
+    📖 @foreach DIRECTIVE:
+    - Renders markup for each item in a collection
+    - 'part' is the loop variable
+    - Each iteration creates DOM elements
+
+    📖 @onclick WITH LAMBDA:
+    - @onclick="() => SelectPart(part)"
+    - Lambda captures 'part' variable
+    - Each card gets its own part reference
+
+    ⚠️ CLOSURE WARNING:
+    If using for loop with index, be careful:
+      @for (int i = 0; i < items.Count; i++)
+      {
+          // WRONG: All buttons would use final i value
+          <button @onclick="() => Select(i)">
+      }
+
+    SOLUTION: Use foreach or capture variable:
+      var captured = i;
+      <button @onclick="() => Select(captured)">
+    *@
     <div class="parts-grid">
         @foreach (var part in parts)
         {
+            @*
+            📖 @onclick WITH ARGUMENT:
+            - () => SelectPart(part) creates a lambda
+            - Lambda is needed to pass parameters
+            - Without lambda: @onclick="SelectPart" (no parameters)
+            *@
             <div class="part-card" @onclick="() => SelectPart(part)">
                 <div class="part-image-placeholder">No Image</div>
                 <div class="part-info">
+                    @*
+                    📖 SIMPLE EXPRESSIONS:
+                    - @part.PartNumber outputs the property value
+                    - No parentheses needed for simple properties
+                    - Automatically HTML-encoded (XSS protection)
+                    *@
                     <div class="part-number">@part.PartNumber</div>
                     <div class="part-name">@part.Name</div>
                     <div class="part-meta">
+                        @*
+                        📖 NULL-COALESCING IN RAZOR:
+                        - @(part.Category?.Name ?? "Uncategorized")
+                        - Handles null Category gracefully
+                        - Parentheses group the expression
+                        *@
                         <span class="text-muted">@(part.Category?.Name ?? "Uncategorized")</span>
+                        @*
+                        📖 CALLING METHODS IN RAZOR:
+                        - @GetQuantityClass(part) calls a method
+                        - Return value becomes the CSS class
+                        - Dynamic styling based on data
+                        *@
                         <span class="part-quantity @GetQuantityClass(part)">
                             @part.Quantity in stock
                         </span>
@@ -47,6 +200,7 @@ else if (parts != null && parts.Any())
 }
 else
 {
+    @* Empty state when no parts exist *@
     <div class="card">
         <p class="text-muted" style="text-align: center;">
             No parts found. Add your first part to get started!
@@ -54,18 +208,60 @@ else
     </div>
 }
 
+@*
+=============================================================================
+MODAL - Add New Part Form
+=============================================================================
+📖 CONDITIONAL MODAL:
+- @if (showAddModal) renders modal only when needed
+- Modal overlay covers entire screen
+- Clicking overlay closes modal
+
+📖 @onclick:stopPropagation:
+- Prevents click event from bubbling to parent
+- Without it: clicking modal content would close it
+- Event modifiers: @onclick:preventDefault also available
+
+📖 EditForm COMPONENT:
+- Blazor's form handling component
+- Model="newPart": Object being edited
+- OnValidSubmit: Handler called when form is valid
+- Provides validation context
+
+📖 InputText, InputNumber, InputSelect:
+- Blazor input components
+- @bind-Value: Two-way binding to model property
+- Automatically update the model object
+- Provide validation support
+
+📚 Forms guide: https://learn.microsoft.com/en-us/aspnet/core/blazor/forms/
+*@
 @if (showAddModal)
 {
     <div class="modal-overlay" @onclick="CloseModals">
+        @* stopPropagation prevents closing when clicking inside modal *@
         <div class="modal" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>Add New Part</h3>
                 <button class="btn-icon" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
+                @*
+                📖 EditForm EXPLAINED:
+                - Wraps form inputs with validation context
+                - Model: The object to bind form fields to
+                - OnValidSubmit: Called only if validation passes
+                - OnInvalidSubmit: Called if validation fails
+                *@
                 <EditForm Model="newPart" OnValidSubmit="SaveNewPart">
                     <div class="form-group">
                         <label class="form-label">Part Number *</label>
+                        @*
+                        📖 InputText COMPONENT:
+                        - Blazor's text input component
+                        - @bind-Value (not @bind) for components
+                        - Automatically validates and updates model
+                        *@
                         <InputText class="form-input" @bind-Value="newPart.PartNumber" />
                     </div>
                     <div class="form-group">
@@ -74,10 +270,23 @@ else
                     </div>
                     <div class="form-group">
                         <label class="form-label">Description</label>
+                        @*
+                        📖 InputTextArea:
+                        - Multi-line text input
+                        - rows="3" sets initial height
+                        - Works same as InputText
+                        *@
                         <InputTextArea class="form-input" @bind-Value="newPart.Description" rows="3" />
                     </div>
                     <div class="form-group">
                         <label class="form-label">Category</label>
+                        @*
+                        📖 InputSelect WITH @foreach:
+                        - Dropdown populated from collection
+                        - value="@cat.Id": Option value is category ID
+                        - @cat.Name: Display text
+                        - @bind-Value binds to CategoryId (nullable int?)
+                        *@
                         <InputSelect class="form-select" @bind-Value="newPart.CategoryId">
                             <option value="">Select category...</option>
                             @foreach (var cat in categories)
@@ -92,6 +301,12 @@ else
                     </div>
                     <div class="form-group">
                         <label class="form-label">Quantity</label>
+                        @*
+                        📖 InputNumber:
+                        - Numeric input with validation
+                        - Automatically parses to int/decimal
+                        - Rejects non-numeric input
+                        *@
                         <InputNumber class="form-input" @bind-Value="newPart.Quantity" />
                     </div>
                     <div class="form-group">
@@ -99,6 +314,12 @@ else
                         <InputText class="form-input" @bind-Value="newPart.Location" />
                     </div>
                     <div class="modal-footer">
+                        @*
+                        📖 BUTTON TYPES IN FORMS:
+                        - type="button": Regular button, won't submit form
+                        - type="submit": Triggers form submission
+                        - Without type: Defaults to submit!
+                        *@
                         <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancel</button>
                         <button type="submit" class="btn btn-primary">Save Part</button>
                     </div>
@@ -108,6 +329,15 @@ else
     </div>
 }
 
+@*
+=============================================================================
+MODAL - Part Detail View
+=============================================================================
+📖 SELECTED ITEM PATTERN:
+- selectedPart != null renders detail view
+- Click on list item sets selectedPart
+- Click close/delete clears selectedPart
+*@
 @if (selectedPart != null)
 {
     <div class="modal-overlay" @onclick="CloseModals">
@@ -117,6 +347,12 @@ else
                 <button class="btn-icon" @onclick="CloseModals">&times;</button>
             </div>
             <div class="modal-body">
+                @*
+                📖 TABLE RENDERING:
+                - Standard HTML table
+                - Razor expressions in cells
+                - Null handling with ?.Name ?? "N/A"
+                *@
                 <table class="table">
                     <tr>
                         <th>Part Number</th>
@@ -142,6 +378,11 @@ else
                         <th>Location</th>
                         <td>@(selectedPart.Location ?? "N/A")</td>
                     </tr>
+                    @*
+                    📖 CONDITIONAL TABLE ROWS:
+                    - @if inside table - only renders row if condition true
+                    - Cleaner than showing "N/A" for optional fields
+                    *@
                     @if (!string.IsNullOrEmpty(selectedPart.Description))
                     {
                         <tr>
@@ -154,7 +395,19 @@ else
                 <div class="mt-md">
                     <h4>Adjust Quantity</h4>
                     <div style="display: flex; gap: 8px; align-items: center;">
+                        @*
+                        📖 REGULAR HTML INPUT VS Blazor Components:
+                        - <input @bind="x"> works for simple cases
+                        - InputNumber provides validation
+                        - Use HTML input when you don't need validation
+                        *@
                         <input type="number" class="form-input" style="width: 100px;" @bind="quantityChange" />
+                        @*
+                        📖 LAMBDA WITH PARAMETERS:
+                        - @onclick="() => AdjustQuantity(1)"
+                        - Passes different values to same method
+                        - Alternative: separate methods for each action
+                        *@
                         <button class="btn btn-primary" @onclick="() => AdjustQuantity(1)">Add</button>
                         <button class="btn btn-secondary" @onclick="() => AdjustQuantity(-1)">Remove</button>
                     </div>
@@ -168,35 +421,203 @@ else
     </div>
 }
 
+@*
+=============================================================================
+CODE BLOCK - Component Logic
+=============================================================================
+📖 @code DIRECTIVE:
+- Contains C# code for the component
+- Fields become component state
+- Methods become event handlers
+- Lifecycle methods hook into component events
+
+📖 COMPONENT STATE:
+- Any field can be state
+- UI re-renders when state changes
+- Call StateHasChanged() to force re-render
+- Usually automatic after event handlers
+
+📖 COMMON LIFECYCLE METHODS:
+- OnInitialized[Async]: Component created
+- OnParametersSet[Async]: Parameters updated
+- OnAfterRender[Async]: DOM rendered
+- Dispose: Component destroyed
+
+📚 Full lifecycle: https://learn.microsoft.com/en-us/aspnet/core/blazor/components/lifecycle
+=============================================================================
+*@
 @code {
+    // -------------------------------------------------------------------------
+    // COMPONENT STATE (Fields)
+    // -------------------------------------------------------------------------
+    // 📖 These fields are the component's "state"
+    // When they change, Blazor re-renders affected parts of the UI
+
+    /// <summary>
+    /// The list of parts to display.
+    /// </summary>
+    /// <remarks>
+    /// 📖 IEnumerable<Part>?:
+    /// - IEnumerable: Can iterate over it (foreach)
+    /// - ?: Nullable - can be null before data loads
+    /// - Could also use List<Part> for more features
+    /// </remarks>
     private IEnumerable<Part>? parts;
+
+    /// <summary>
+    /// Available categories for the dropdown.
+    /// </summary>
+    /// <remarks>
+    /// 📖 Array.Empty<Category>():
+    /// - Returns a cached empty array (memory efficient)
+    /// - Better than new Category[] { } or new List<Category>()
+    /// - Prevents null reference when rendering dropdown
+    /// </remarks>
     private IEnumerable<Category> categories = Array.Empty<Category>();
+
+    /// <summary>
+    /// Current search query text.
+    /// </summary>
     private string searchQuery = "";
+
+    /// <summary>
+    /// Whether data is currently loading.
+    /// </summary>
+    /// <remarks>
+    /// 📖 LOADING STATE PATTERN:
+    /// 1. Set isLoading = true before async operation
+    /// 2. Perform async operation
+    /// 3. Set isLoading = false in finally block
+    /// 4. UI reacts to isLoading changes
+    /// </remarks>
     private bool isLoading = true;
+
+    /// <summary>
+    /// Whether the "Add Part" modal is visible.
+    /// </summary>
     private bool showAddModal = false;
+
+    /// <summary>
+    /// The currently selected part for detail view.
+    /// </summary>
+    /// <remarks>
+    /// 📖 NULLABLE FOR "NO SELECTION":
+    /// - null = no part selected, modal hidden
+    /// - Part instance = part selected, modal shown
+    /// - Common pattern for optional UI state
+    /// </remarks>
     private Part? selectedPart;
+
+    /// <summary>
+    /// Model object for the "Add Part" form.
+    /// </summary>
+    /// <remarks>
+    /// 📖 FORM MODEL:
+    /// - new Part() creates empty object
+    /// - Form inputs bind to this object's properties
+    /// - On submit, this object is sent to service
+    /// - Reset with newPart = new Part()
+    /// </remarks>
     private Part newPart = new();
+
+    /// <summary>
+    /// Amount to add/remove in quantity adjustment.
+    /// </summary>
     private int quantityChange = 1;
 
+    // -------------------------------------------------------------------------
+    // LIFECYCLE METHODS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Called when the component is first initialized.
+    /// </summary>
+    /// <remarks>
+    /// 📖 OnInitializedAsync:
+    /// - One of Blazor's lifecycle methods
+    /// - Called once when component is created
+    /// - Perfect for loading initial data
+    /// - Can be sync (OnInitialized) or async (OnInitializedAsync)
+    ///
+    /// 📖 protected override:
+    /// - protected: Accessible to derived classes
+    /// - override: Replaces the base class implementation
+    /// - Must match base class signature
+    ///
+    /// 📖 LIFECYCLE ORDER:
+    /// 1. Constructor
+    /// 2. SetParametersAsync
+    /// 3. OnInitialized[Async]
+    /// 4. OnParametersSet[Async]
+    /// 5. OnAfterRender[Async]
+    /// </remarks>
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
     }
 
+    // -------------------------------------------------------------------------
+    // DATA LOADING
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Loads parts and categories from the service.
+    /// </summary>
+    /// <remarks>
+    /// 📖 TRY-FINALLY PATTERN:
+    /// - try block: Code that might fail
+    /// - finally block: Always runs, even if exception occurs
+    /// - Ensures isLoading is set to false even on error
+    /// - No catch block: Let errors propagate
+    ///
+    /// 📖 WHY NO CATCH BLOCK?
+    /// - Blazor has built-in error handling
+    /// - Let framework handle unexpected errors
+    /// - Only catch what you can meaningfully handle
+    /// </remarks>
     private async Task LoadData()
     {
         isLoading = true;
         try
         {
+            // 📖 Parallel calls: These don't depend on each other
+            // Could optimize with Task.WhenAll for parallel execution:
+            //   var partsTask = PartsService.GetPartsAsync();
+            //   var categoriesTask = PartsService.GetCategoriesAsync();
+            //   await Task.WhenAll(partsTask, categoriesTask);
+            //   parts = await partsTask;
+            //   categories = await categoriesTask;
             parts = await PartsService.GetPartsAsync();
             categories = await PartsService.GetCategoriesAsync();
         }
         finally
         {
             isLoading = false;
+            // 📖 StateHasChanged() is called automatically after event handlers
+            // If called outside event handler, you'd need: await InvokeAsync(StateHasChanged);
         }
     }
 
+    // -------------------------------------------------------------------------
+    // EVENT HANDLERS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Handles keyup events in the search input.
+    /// </summary>
+    /// <remarks>
+    /// 📖 KeyboardEventArgs:
+    /// - Contains information about the keyboard event
+    /// - e.Key: The key pressed ("Enter", "a", "Escape", etc.)
+    /// - e.Code: Physical key code
+    /// - e.CtrlKey, e.ShiftKey: Modifier keys
+    ///
+    /// 📖 DEBOUNCING (not implemented here):
+    /// For better UX, consider debouncing search:
+    /// - Wait 300ms after last keystroke before searching
+    /// - Reduces API calls during fast typing
+    /// - Use System.Threading.Timer or third-party library
+    /// </remarks>
     private async Task OnSearchKeyUp(KeyboardEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(searchQuery))
@@ -207,61 +628,245 @@ else
         {
             parts = await PartsService.SearchPartsAsync(searchQuery);
         }
+        // 📖 UI automatically re-renders because we're in an event handler
     }
 
+    /// <summary>
+    /// Shows the "Add Part" modal.
+    /// </summary>
+    /// <remarks>
+    /// 📖 RESETTING FORM STATE:
+    /// - new Part() clears all previous form data
+    /// - Important when modal is reused
+    /// - Alternative: Call Clear() method on existing object
+    /// </remarks>
     private void ShowAddPartModal()
     {
-        newPart = new Part();
-        showAddModal = true;
+        newPart = new Part();  // Fresh object for the form
+        showAddModal = true;   // Show the modal
     }
 
+    /// <summary>
+    /// Selects a part for detail view.
+    /// </summary>
+    /// <remarks>
+    /// 📖 SETTING STATE SHOWS MODAL:
+    /// - selectedPart != null triggers modal rendering
+    /// - Simple pattern: state controls UI visibility
+    /// </remarks>
     private void SelectPart(Part part)
     {
         selectedPart = part;
-        quantityChange = 1;
+        quantityChange = 1;  // Reset quantity input
     }
 
+    /// <summary>
+    /// Closes all modal dialogs.
+    /// </summary>
+    /// <remarks>
+    /// 📖 SINGLE CLOSE METHOD:
+    /// - Closes any modal that might be open
+    /// - Simpler than separate methods per modal
+    /// - Bound to overlay click and close buttons
+    /// </remarks>
     private void CloseModals()
     {
         showAddModal = false;
         selectedPart = null;
     }
 
+    // -------------------------------------------------------------------------
+    // DATA OPERATIONS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Saves the new part to the database.
+    /// </summary>
+    /// <remarks>
+    /// 📖 VALIDATION:
+    /// - Simple check before calling service
+    /// - Could use DataAnnotations for declarative validation:
+    ///   [Required] public string PartNumber { get; set; }
+    /// - EditForm + ValidationSummary shows validation errors
+    ///
+    /// 📖 REFRESH AFTER SAVE:
+    /// - LoadData() fetches fresh data from database
+    /// - Ensures list shows the new part
+    /// - Alternative: Add to local list without reloading
+    /// </remarks>
     private async Task SaveNewPart()
     {
+        // Guard clause: Validate required fields
         if (string.IsNullOrWhiteSpace(newPart.PartNumber) || string.IsNullOrWhiteSpace(newPart.Name))
-            return;
+            return;  // Don't save if validation fails
 
         await PartsService.CreatePartAsync(newPart);
-        await LoadData();
-        CloseModals();
+        await LoadData();   // Refresh the list
+        CloseModals();      // Close the form
     }
 
+    /// <summary>
+    /// Adjusts the quantity of the selected part.
+    /// </summary>
+    /// <param name="direction">1 for add, -1 for remove.</param>
+    /// <remarks>
+    /// 📖 DIRECTION PARAMETER:
+    /// - Reuses same method for add/remove
+    /// - quantityChange * direction gives actual change
+    /// - Positive direction = add, negative = remove
+    ///
+    /// 📖 TERNARY OPERATOR:
+    /// - direction > 0 ? In : Out
+    /// - Concise way to select between two values
+    /// - Equivalent to if/else but in an expression
+    /// </remarks>
     private async Task AdjustQuantity(int direction)
     {
-        if (selectedPart == null) return;
+        if (selectedPart == null) return;  // Guard clause
 
         var change = quantityChange * direction;
         var type = direction > 0 ? TransactionType.In : TransactionType.Out;
 
         await PartsService.UpdateQuantityAsync(selectedPart.Id, change, type);
+
+        // Refresh the selected part to show updated quantity
         selectedPart = await PartsService.GetPartByIdAsync(selectedPart.Id);
+
+        // Refresh the list too (quantity shown in cards)
         await LoadData();
     }
 
+    /// <summary>
+    /// Deletes the currently selected part.
+    /// </summary>
+    /// <remarks>
+    /// 📖 OPTIMISTIC UI (not implemented here):
+    /// Alternative approach for better UX:
+    /// 1. Remove from local list immediately
+    /// 2. Close modal
+    /// 3. Call delete API in background
+    /// 4. On failure, re-add to list and show error
+    ///
+    /// Current approach is simpler but slower:
+    /// 1. Call delete API
+    /// 2. Reload entire list
+    /// 3. Close modal
+    /// </remarks>
     private async Task DeleteSelectedPart()
     {
         if (selectedPart == null) return;
 
         await PartsService.DeletePartAsync(selectedPart.Id);
-        await LoadData();
-        CloseModals();
+        await LoadData();    // Refresh to remove deleted part
+        CloseModals();       // Close detail modal
     }
 
+    // -------------------------------------------------------------------------
+    // HELPER METHODS
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Returns CSS class name based on part's stock level.
+    /// </summary>
+    /// <returns>CSS class for styling quantity display.</returns>
+    /// <remarks>
+    /// 📖 COMPUTED CSS CLASSES:
+    /// - Method returns string used as CSS class
+    /// - Called in Razor: class="part-quantity @GetQuantityClass(part)"
+    /// - Could also be a computed property if no parameters needed
+    ///
+    /// 📖 STYLING BY STATE:
+    /// - Red for out of stock (quantity-out)
+    /// - Yellow for low stock (quantity-low)
+    /// - Green for OK (quantity-ok)
+    /// - CSS definitions are in the stylesheet
+    /// </remarks>
     private string GetQuantityClass(Part part)
     {
-        if (part.Quantity <= 0) return "quantity-out";
-        if (part.Quantity <= part.MinQuantity) return "quantity-low";
-        return "quantity-ok";
+        if (part.Quantity <= 0) return "quantity-out";       // Out of stock
+        if (part.Quantity <= part.MinQuantity) return "quantity-low";  // Low stock
+        return "quantity-ok";  // Normal stock level
     }
 }
+
+@*
+=============================================================================
+📖 EXTENSION IDEAS FOR LEARNING
+=============================================================================
+
+1. ADD VALIDATION:
+   Use DataAnnotations in your model:
+
+   public class Part
+   {
+       [Required(ErrorMessage = "Part number is required")]
+       [StringLength(50, MinimumLength = 3)]
+       public string PartNumber { get; set; }
+   }
+
+   Then in your form:
+   <EditForm Model="newPart" OnValidSubmit="SaveNewPart">
+       <DataAnnotationsValidator />
+       <ValidationSummary />
+       ...
+   </EditForm>
+
+2. ADD DEBOUNCED SEARCH:
+   using System.Timers;
+
+   private System.Timers.Timer? _searchTimer;
+
+   private void OnSearchInput(ChangeEventArgs e)
+   {
+       _searchTimer?.Stop();
+       _searchTimer = new System.Timers.Timer(300);
+       _searchTimer.Elapsed += async (s, e) =>
+       {
+           await InvokeAsync(async () => { await PerformSearch(); });
+       };
+       _searchTimer.Start();
+   }
+
+3. ADD CONFIRMATION DIALOG:
+   private bool showDeleteConfirm = false;
+
+   private void RequestDelete() => showDeleteConfirm = true;
+   private async Task ConfirmDelete()
+   {
+       await DeleteSelectedPart();
+       showDeleteConfirm = false;
+   }
+
+4. ADD ERROR HANDLING:
+   private string? errorMessage;
+
+   private async Task LoadData()
+   {
+       try
+       {
+           errorMessage = null;
+           parts = await PartsService.GetPartsAsync();
+       }
+       catch (Exception ex)
+       {
+           errorMessage = "Failed to load parts. Please try again.";
+           // Log: _logger.LogError(ex, "Failed to load parts");
+       }
+   }
+
+5. ADD SORTING:
+   private string sortColumn = "Name";
+   private bool sortAscending = true;
+
+   private IEnumerable<Part> SortedParts => sortAscending
+       ? parts?.OrderBy(p => GetSortValue(p))
+       : parts?.OrderByDescending(p => GetSortValue(p));
+
+   private object GetSortValue(Part p) => sortColumn switch
+   {
+       "Name" => p.Name,
+       "Quantity" => p.Quantity,
+       "PartNumber" => p.PartNumber,
+       _ => p.Name
+   };
+*@
