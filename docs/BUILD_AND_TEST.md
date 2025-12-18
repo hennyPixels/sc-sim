@@ -4,12 +4,12 @@
 
 ### .NET (Blazor Hybrid MAUI)
 ```bash
-# Install .NET 8 SDK
+# Install .NET 10 SDK
 # Windows: Download from https://dotnet.microsoft.com/download
 # Linux:
 wget https://dot.net/v1/dotnet-install.sh
 chmod +x dotnet-install.sh
-./dotnet-install.sh --channel 8.0
+./dotnet-install.sh --channel 10.0
 
 # Install MAUI workload
 dotnet workload install maui
@@ -261,7 +261,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore dependencies
         run: dotnet restore
@@ -285,7 +285,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Publish
         run: |
